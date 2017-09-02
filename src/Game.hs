@@ -10,11 +10,11 @@ data Field = Field
   , width :: Int    -- ^ ширина игрового поля
   , height :: Int   -- ^ высота игрового поля
   , pause :: Bool   -- ^ флаг паузы игры
-  }
+  } deriving (Show)
 
 -- | Размер каждой клетки поля при отрисовке
 cellSize :: Float 
-cellSize = 30
+cellSize = 25
 
 -- | Состояние поля в начале игры
 initField :: Field
@@ -30,7 +30,16 @@ viewPort = ViewPort (negate . (/ 2) . (subtract cellSize) . fst $ cellToScreen (
 
 -- | Отобразить игровое поле
 renderer :: Field -> Picture
-renderer field = applyViewPortToPicture viewPort (pictures 
+renderer field
+ | alive field == [] = applyViewPortToPicture viewPort (pictures 
+  ([showDead (x, y) | x <- [0 .. width field - 1], y <- [0 .. height field - 1]]
+    ++ [showAlive cell | cell <- alive field] ++ [showPause (pause field), 
+    uncurry translate (cellToScreen (0, 7)) (scale 0.14 0.14 (text "Space key to play or pause the game")),
+    uncurry translate (cellToScreen (0, 6)) (scale 0.14 0.14 (text "Up and Down keys to change height")),
+    uncurry translate (cellToScreen (0, 5)) (scale 0.14 0.14 (text "Left and Right keys to change width")),
+    uncurry translate (cellToScreen (0, 4)) (scale 0.14 0.14 (text "C to clean all cells")),
+    uncurry translate (cellToScreen (0, 3)) (scale 0.14 0.14 (text "Escape to quit"))]))
+ | otherwise = applyViewPortToPicture viewPort (pictures 
   ([showDead (x, y) | x <- [0 .. width field - 1], y <- [0 .. height field - 1]]
     ++ [showAlive cell | cell <- alive field] ++ [showPause (pause field)]))
 
@@ -47,7 +56,7 @@ showPause :: Bool -> Picture
 showPause True = scale 0.5 0.5 (color red (text "Pause"))
 showPause False = Blank
 
--- | Преобразовать координаты на игровом поле в координаты в окне
+-- | Преобразовать координаты на игровом поле в координаты на изображении
 cellToScreen :: Cell -> Point
 cellToScreen (x, y) = (fromIntegral x * cellSize, fromIntegral y * cellSize)
 
@@ -59,7 +68,14 @@ oneStep _ field
 
 -- | Применяет правила игры к полю
 applyRules :: Field -> Field
-applyRules = id
+applyRules field = Field ([(x, y) | x <- [0 .. width field - 1], y <- [0 .. height field - 1], 
+  (x, y) `elem` alive field && (length (neighbours (x, y) field) == 2 || length (neighbours (x, y) field) == 3)] ++
+  [(x, y) | x <- [0 .. width field - 1], y <- [0 .. height field - 1],
+  not ((x, y) `elem` alive field) && (length (neighbours (x, y) field) == 3)]) (width field) (height field) (pause field)
+
+neighbours :: Cell -> Field -> [Cell]
+neighbours (x, y) field = [(x + dx, y + dy) | dx <- [-1 .. 1], dy <- [-1 .. 1], (x + dx, y + dy) `elem` alive field,
+  not (dx == 0 && dy == 0), x + dx >= 0, x + dx < width field, y + dy >= 0, y + dy < height field]
 
 -- | Обработчик событий
 handler :: Event -> Field -> Field
@@ -73,6 +89,7 @@ handler (EventKey (SpecialKey KeyRight) Down _ _) (Field l x y p) = Field l (x +
 handler (EventKey (SpecialKey KeyLeft) Down _ _) (Field l x y p)
   | x - 1 > 0 = Field (filter (\c -> fst c >= 0 && fst c < x - 1) l) (x - 1) y p 
   | otherwise = Field l x y p
+handler (EventKey (Char 'c') Down _ _) (Field l x y p) = Field [] x y p
 handler _ field = field
 
 -- | Добавление живой клетки на поле
@@ -90,8 +107,8 @@ screenToCell p = ((round . (/ cellSize) . fst . invertViewPort viewPort) p, (rou
 startGame :: Field -> IO ()
 startGame field = play window background fps field renderer handler oneStep
   where
-    window = InWindow "Good Window" (windowWidth, windowHeight) (200, 200)
+    window = InWindow "Good Window" (windowWidth, windowHeight) (100, 100)
     windowWidth = (round . fst . cellToScreen) (width initField, height initField) + round (2 * cellSize)
     windowHeight = (round . snd . cellToScreen) (width initField, height initField) + round (2 * cellSize)
     background = white
-    fps = 1
+    fps = 5
