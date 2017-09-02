@@ -70,10 +70,10 @@ oneStep _ field
 -- | Применяет правила игры к полю
 applyRules :: Field -> Field
 applyRules field = Field ([(x, y) | x <- [0 .. width field - 1], y <- [0 .. height field - 1], 
-  (x, y) `elem` alive field && (length (neighbours (x, y) field) == 2 || length (neighbours (x, y) field) == 3)] ++
-  [(x, y) | x <- [0 .. width field - 1], y <- [0 .. height field - 1],
-  not ((x, y) `elem` alive field) && (length (neighbours (x, y) field) == 3)]) (width field) (height field) (pause field)
+  ((x, y) `elem` alive field && (length (neighbours (x, y) field) == 2 || length (neighbours (x, y) field) == 3)) ||
+  (not ((x, y) `elem` alive field) && (length (neighbours (x, y) field) == 3))]) (width field) (height field) (pause field)
 
+-- | Поиск живых соседей клетки
 neighbours :: Cell -> Field -> [Cell]
 neighbours (x, y) field = [(x + dx, y + dy) | dx <- [-1 .. 1], dy <- [-1 .. 1], (x + dx, y + dy) `elem` alive field,
   not (dx == 0 && dy == 0), x + dx >= 0, x + dx < width field, y + dy >= 0, y + dy < height field]
@@ -81,16 +81,16 @@ neighbours (x, y) field = [(x + dx, y + dy) | dx <- [-1 .. 1], dy <- [-1 .. 1], 
 -- | Обработчик событий
 handler :: Event -> Field -> Field
 handler (EventKey (MouseButton LeftButton) Down _ mouse) field = addAlive (screenToCell mouse field) field
-handler (EventKey (SpecialKey KeySpace) Down _ _) (Field l x y p) = Field l x y (not p)
-handler (EventKey (SpecialKey KeyUp) Down _ _) (Field l x y p) = Field l x (y + 1) p
-handler (EventKey (SpecialKey KeyDown) Down _ _) (Field l x y p)
-  | y - 1 > 0 = Field (filter (\c -> snd c >= 0 && snd c < y - 1) l) x (y - 1) p
-  | otherwise = Field l x y p
-handler (EventKey (SpecialKey KeyRight) Down _ _) (Field l x y p) = Field l (x + 1) y p
-handler (EventKey (SpecialKey KeyLeft) Down _ _) (Field l x y p)
-  | x - 1 > 0 = Field (filter (\c -> fst c >= 0 && fst c < x - 1) l) (x - 1) y p 
-  | otherwise = Field l x y p
-handler (EventKey (Char 'c') Down _ _) (Field _ x y p) = Field [] x y p
+handler (EventKey (SpecialKey KeySpace) Down _ _) (Field l w h p) = Field l w h (not p)
+handler (EventKey (SpecialKey KeyUp) Down _ _) (Field l w h p) = Field l w (h + 1) p
+handler (EventKey (SpecialKey KeyDown) Down _ _) (Field l w h p)
+  | h - 1 > 0 = Field (filter (\c -> snd c >= 0 && snd c < h - 1) l) w (h - 1) p
+  | otherwise = Field l w h p
+handler (EventKey (SpecialKey KeyRight) Down _ _) (Field l w h p) = Field l (w + 1) h p
+handler (EventKey (SpecialKey KeyLeft) Down _ _) (Field l w h p)
+  | w - 1 > 0 = Field (filter (\c -> fst c >= 0 && fst c < w - 1) l) (w - 1) h p 
+  | otherwise = Field l w h p
+handler (EventKey (Char 'c') Down _ _) (Field _ w h p) = Field [] w h p
 handler _ field = field
 
 -- | Добавление живой клетки на поле
@@ -109,8 +109,8 @@ screenToCell p field = ((round . (/ cellSize) . fst . invertViewPort (viewPort f
 startGame :: Field -> IO ()
 startGame field = play window background fps field renderer handler oneStep
   where
-    window = InWindow "Good Window" (windowWidth, windowHeight) (100, 100)
-    windowWidth = (round . fst . cellToScreen) (width initField, height initField) + round (2 * cellSize)
-    windowHeight = (round . snd . cellToScreen) (width initField, height initField) + round (2 * cellSize)
+    window = InWindow "Conway's Game of Life" (windowWidth, windowHeight) (100, 100)
+    windowWidth = (round . fst . cellToScreen) (width initField, height initField) + round (3 * cellSize)
+    windowHeight = (round . snd . cellToScreen) (width initField, height initField) + round (3 * cellSize)
     background = white
-    fps = 5
+    fps = 4
