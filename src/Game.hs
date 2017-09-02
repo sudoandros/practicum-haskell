@@ -2,6 +2,7 @@ module Game where
 
 import Graphics.Gloss.Interface.Pure.Game
 import Graphics.Gloss.Data.ViewPort
+import Data.List
 
 
 -- | Состояние игрового поля
@@ -24,14 +25,14 @@ initField = Field [] 15 15 True
 type Cell = (Int, Int)
 
 -- | Проекция, для того чтобы поле отображалось по центру окна
-viewPort :: ViewPort
-viewPort = ViewPort (negate . (/ 2) . (subtract cellSize) . fst $ cellToScreen (width initField, height initField),
-  negate . (/ 2) . (subtract cellSize) . snd $ cellToScreen (width initField, height initField)) 0 1
+viewPort :: Field -> ViewPort
+viewPort field = ViewPort (negate . (/ 2) . (subtract cellSize) . fst $ cellToScreen (width field, height field),
+  negate . (/ 2) . (subtract cellSize) . snd $ cellToScreen (width field, height field)) 0 1
 
 -- | Отобразить игровое поле
 renderer :: Field -> Picture
 renderer field
- | alive field == [] = applyViewPortToPicture viewPort (pictures 
+ | alive field == [] = (applyViewPortToPicture . viewPort) field (pictures 
   ([showDead (x, y) | x <- [0 .. width field - 1], y <- [0 .. height field - 1]]
     ++ [showAlive cell | cell <- alive field] ++ [showPause (pause field), 
     uncurry translate (cellToScreen (0, 7)) (scale 0.14 0.14 (text "Space key to play or pause the game")),
@@ -39,7 +40,7 @@ renderer field
     uncurry translate (cellToScreen (0, 5)) (scale 0.14 0.14 (text "Left and Right keys to change width")),
     uncurry translate (cellToScreen (0, 4)) (scale 0.14 0.14 (text "C to clean all cells")),
     uncurry translate (cellToScreen (0, 3)) (scale 0.14 0.14 (text "Escape to quit"))]))
- | otherwise = applyViewPortToPicture viewPort (pictures 
+ | otherwise = (applyViewPortToPicture . viewPort) field (pictures 
   ([showDead (x, y) | x <- [0 .. width field - 1], y <- [0 .. height field - 1]]
     ++ [showAlive cell | cell <- alive field] ++ [showPause (pause field)]))
 
@@ -79,7 +80,7 @@ neighbours (x, y) field = [(x + dx, y + dy) | dx <- [-1 .. 1], dy <- [-1 .. 1], 
 
 -- | Обработчик событий
 handler :: Event -> Field -> Field
-handler (EventKey (MouseButton LeftButton) Down _ mouse) field = addAlive (screenToCell mouse) field
+handler (EventKey (MouseButton LeftButton) Down _ mouse) field = addAlive (screenToCell mouse field) field
 handler (EventKey (SpecialKey KeySpace) Down _ _) (Field l x y p) = Field l x y (not p)
 handler (EventKey (SpecialKey KeyUp) Down _ _) (Field l x y p) = Field l x (y + 1) p
 handler (EventKey (SpecialKey KeyDown) Down _ _) (Field l x y p)
@@ -89,7 +90,7 @@ handler (EventKey (SpecialKey KeyRight) Down _ _) (Field l x y p) = Field l (x +
 handler (EventKey (SpecialKey KeyLeft) Down _ _) (Field l x y p)
   | x - 1 > 0 = Field (filter (\c -> fst c >= 0 && fst c < x - 1) l) (x - 1) y p 
   | otherwise = Field l x y p
-handler (EventKey (Char 'c') Down _ _) (Field l x y p) = Field [] x y p
+handler (EventKey (Char 'c') Down _ _) (Field _ x y p) = Field [] x y p
 handler _ field = field
 
 -- | Добавление живой клетки на поле
@@ -97,11 +98,12 @@ addAlive :: Cell -> Field -> Field
 addAlive (x, y) field
   | x >= 0 && x < width field && y >= 0 && y < height field && not ((x, y) `elem` alive field) = 
     Field ((x, y) : alive field) (width field) (height field) (pause field)
-  | otherwise = field
+  | otherwise = Field (delete (x, y) (alive field)) (width field) (height field) (pause field)
 
 -- | Преобразовать координаты в окне в координаты на игровом поле 
-screenToCell :: Point -> Cell
-screenToCell p = ((round . (/ cellSize) . fst . invertViewPort viewPort) p, (round . (/ cellSize) . snd . invertViewPort viewPort) p)
+screenToCell :: Point -> Field -> Cell
+screenToCell p field = ((round . (/ cellSize) . fst . invertViewPort (viewPort field)) p, 
+  (round . (/ cellSize) . snd . invertViewPort (viewPort field)) p)
 
 -- | Запустить игру 
 startGame :: Field -> IO ()
