@@ -1,4 +1,4 @@
-# project-template
+# Conway's Game of Life
 
 [![Build Status](https://travis-ci.org/cmc-haskell-2017/project-template.svg?branch=master)](https://travis-ci.org/cmc-haskell-2017/project-template)
 
