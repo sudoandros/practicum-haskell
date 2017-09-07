@@ -17,10 +17,6 @@ data Field = Field
 cellSize :: Float 
 cellSize = 25
 
--- | Состояние поля в начале игры
-initField :: Field
-initField = Field [] 15 15 True
-
 -- | Клетка поля
 type Cell = (Int, Int)
 
@@ -110,7 +106,7 @@ startGame :: Field -> IO ()
 startGame field = play window background fps field renderer handler oneStep
   where
     window = InWindow "Conway's Game of Life" (windowWidth, windowHeight) (100, 100)
-    windowWidth = (round . fst . cellToScreen) (width initField, height initField) + round (3 * cellSize)
-    windowHeight = (round . snd . cellToScreen) (width initField, height initField) + round (3 * cellSize)
+    windowWidth = (round . fst . cellToScreen) (width field, height field) + round (3 * cellSize)
+    windowHeight = (round . snd . cellToScreen) (width field, height field) + round (3 * cellSize)
     background = white
-    fps = 4
+    fps = 10
