@@ -31,6 +31,7 @@ renderer field
  | alive field == [] = (applyViewPortToPicture . viewPort) field (pictures 
   ([showDead (x, y) | x <- [0 .. width field - 1], y <- [0 .. height field - 1]]
     ++ [showAlive cell | cell <- alive field] ++ [showPause (pause field), 
+    uncurry translate (cellToScreen (0, 8)) (scale 0.14 0.14 (text "Left click to change state of the cell")),    
     uncurry translate (cellToScreen (0, 7)) (scale 0.14 0.14 (text "Space key to play or pause the game")),
     uncurry translate (cellToScreen (0, 6)) (scale 0.14 0.14 (text "Up and Down keys to change height")),
     uncurry translate (cellToScreen (0, 5)) (scale 0.14 0.14 (text "Left and Right keys to change width")),
