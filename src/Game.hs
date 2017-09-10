@@ -11,6 +11,7 @@ data Field = Field
   , width :: Int    -- ^ ширина игрового поля
   , height :: Int   -- ^ высота игрового поля
   , pause :: Bool   -- ^ флаг паузы игры
+  , pressed :: Cell -- ^ последняя нажатая клетка
   } deriving (Show)
 
 -- | Размер каждой клетки поля при отрисовке
@@ -68,7 +69,7 @@ oneStep _ field
 applyRules :: Field -> Field
 applyRules field = Field ([(x, y) | x <- [0 .. width field - 1], y <- [0 .. height field - 1], 
   ((x, y) `elem` alive field && (length (neighbours (x, y) field) == 2 || length (neighbours (x, y) field) == 3)) ||
-  (not ((x, y) `elem` alive field) && (length (neighbours (x, y) field) == 3))]) (width field) (height field) (pause field)
+  (not ((x, y) `elem` alive field) && (length (neighbours (x, y) field) == 3))]) (width field) (height field) (pause field) (pressed field)
 
 -- | Поиск живых соседей клетки
 neighbours :: Cell -> Field -> [Cell]
@@ -77,25 +78,38 @@ neighbours (x, y) field = [(x + dx, y + dy) | dx <- [-1 .. 1], dy <- [-1 .. 1], 
 
 -- | Обработчик событий
 handler :: Event -> Field -> Field
-handler (EventKey (MouseButton LeftButton) Down _ mouse) field = addAlive (screenToCell mouse field) field
-handler (EventKey (SpecialKey KeySpace) Down _ _) (Field l w h p) = Field l w h (not p)
-handler (EventKey (SpecialKey KeyUp) Down _ _) (Field l w h p) = Field l w (h + 1) p
-handler (EventKey (SpecialKey KeyDown) Down _ _) (Field l w h p)
-  | h - 1 > 0 = Field (filter (\c -> snd c >= 0 && snd c < h - 1) l) w (h - 1) p
-  | otherwise = Field l w h p
-handler (EventKey (SpecialKey KeyRight) Down _ _) (Field l w h p) = Field l (w + 1) h p
-handler (EventKey (SpecialKey KeyLeft) Down _ _) (Field l w h p)
-  | w - 1 > 0 = Field (filter (\c -> fst c >= 0 && fst c < w - 1) l) (w - 1) h p 
-  | otherwise = Field l w h p
-handler (EventKey (Char 'c') Down _ _) (Field _ w h p) = Field [] w h p
+handler (EventKey (MouseButton LeftButton) Down _ mouse) (Field l w h p pr) = addAlive cell (Field l w h p cell)
+  where
+    cell = (screenToCell mouse (Field l w h p pr))
+handler (EventKey (MouseButton LeftButton) Up _ mouse) (Field l w h p pr) 
+  | cell /= pr && pr /= (-1, -1) = addAlive cell (Field l w h p cell)
+  | otherwise = (Field l w h p (-1, -1)) 
+  where
+    cell = (screenToCell mouse (Field l w h p pr))
+handler (EventMotion mouse) (Field l w h p pr)
+  | cell /= pr && pr /= (-1, -1) = addAlive cell (Field l w h p cell)
+  | otherwise = (Field l w h p pr) 
+  where
+    cell = (screenToCell mouse (Field l w h p pr))
+
+handler (EventKey (SpecialKey KeySpace) Down _ _) (Field l w h p pr) = Field l w h (not p) pr
+handler (EventKey (SpecialKey KeyUp) Down _ _) (Field l w h p pr) = Field l w (h + 1) p pr
+handler (EventKey (SpecialKey KeyDown) Down _ _) (Field l w h p pr)
+  | h - 1 > 0 = Field (filter (\c -> snd c >= 0 && snd c < h - 1) l) w (h - 1) p pr
+  | otherwise = Field l w h p pr
+handler (EventKey (SpecialKey KeyRight) Down _ _) (Field l w h p pr) = Field l (w + 1) h p pr
+handler (EventKey (SpecialKey KeyLeft) Down _ _) (Field l w h p pr)
+  | w - 1 > 0 = Field (filter (\c -> fst c >= 0 && fst c < w - 1) l) (w - 1) h p  pr
+  | otherwise = Field l w h p pr
+handler (EventKey (Char 'c') Down _ _) (Field _ w h p pr) = Field [] w h p pr
 handler _ field = field
 
 -- | Добавление живой клетки на поле
 addAlive :: Cell -> Field -> Field
 addAlive (x, y) field
   | x >= 0 && x < width field && y >= 0 && y < height field && not ((x, y) `elem` alive field) = 
-    Field ((x, y) : alive field) (width field) (height field) (pause field)
-  | otherwise = Field (delete (x, y) (alive field)) (width field) (height field) (pause field)
+    Field ((x, y) : alive field) (width field) (height field) (pause field) (pressed field)
+  | otherwise = Field (delete (x, y) (alive field)) (width field) (height field) (pause field) (pressed field)
 
 -- | Преобразовать координаты в окне в координаты на игровом поле 
 screenToCell :: Point -> Field -> Cell

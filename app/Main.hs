@@ -14,4 +14,4 @@ main = do
     str <- hGetLine hndl
     let h = read str :: Int
     hClose hndl
-    startGame (Field l w h True)
+    startGame (Field l w h True (-1, -1))
